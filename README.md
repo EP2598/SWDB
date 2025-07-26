@@ -1,6 +1,6 @@
-# Vue.js API Data Fetcher
+# SWDB - Vue.js API Data Fetcher
 
-A Vue.js 3 application built with Vite that demonstrates fetching data from external APIs and displaying it in a beautiful, responsive interface.
+A Vue.js 3 application built with Vite that demonstrates fetching data from external APIs (including Star Wars data) and displaying it in a beautiful, responsive interface.
 
 ## Features
 
@@ -14,11 +14,9 @@ A Vue.js 3 application built with Vite that demonstrates fetching data from exte
 
 ## API Integration
 
-The application demonstrates fetching data from the JSONPlaceholder API with endpoints for:
-- Posts
-- Users
-- Albums
-- Todos
+The application demonstrates fetching data from external APIs with endpoints for:
+- JSONPlaceholder API (Posts, Users, Albums, Todos)
+- Easily extensible for Star Wars API (SWAPI) or any other external API
 
 You can easily extend this to work with any external API by modifying the `src/services/apiService.js` file.
 
