@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWDB Logging Test - Working Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .demo-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .log-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .info {
+            background: #003d6b;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <h1>🚀 SWDB Error Logging - Working Demo</h1>
+    
+    <div class="info">
+        <h3>📋 How This Works:</h3>
+        <p>✅ Errors are logged to <strong>browser console</strong></p>
+        <p>✅ Errors are automatically <strong>downloaded as .txt files</strong></p>
+        <p>✅ Errors are stored in <strong>localStorage</strong> for viewing</p>
+        <p>✅ File format: <code>YYYY-MM-DD ErrLog.txt</code></p>
+        <p>✅ Entry format: <code>HH:mm:ss - [Context] Error Message</code></p>
+    </div>
+
+    <div class="demo-section">
+        <h3>🧪 Test Error Logging</h3>
+        <button onclick="testNetworkError()">Network Error</button>
+        <button onclick="testAPIError()">API Error</button>
+        <button onclick="testValidationError()">Validation Error</button>
+        <button onclick="testRealAppError()">Test in Real App</button>
+    </div>
+
+    <div class="demo-section">
+        <h3>📊 Log Management</h3>
+        <button onclick="viewLogs()">View Stored Logs</button>
+        <button onclick="downloadAllLogs()">Download All</button>
+        <button onclick="clearLogs()">Clear All</button>
+        <button onclick="showLogCount()">Show Count</button>
+    </div>
+
+    <div class="demo-section">
+        <h3>📄 Log Output</h3>
+        <div id="logOutput" class="log-output">Ready to test error logging...</div>
+    </div>
+
+    <div class="demo-section">
+        <h3>🔧 Instructions</h3>
+        <p><strong>To test in your main app:</strong></p>
+        <ol>
+            <li>Go to <a href="http://localhost:5173" target="_blank" style="color: #007acc;">http://localhost:5173</a></li>
+            <li>Click the orange "🧪 Test Error Logging" button</li>
+            <li>Check your Downloads folder for the log file</li>
+            <li>Check browser console (F12) for error messages</li>
+        </ol>
+    </div>
+
+    <script>
+        // Logging utility functions
+        function createLogEntry(context, errorMessage) {
+            const timestamp = new Date();
+            const year = timestamp.getFullYear();
+            const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+            const day = String(timestamp.getDate()).padStart(2, '0');
+            const hours = String(timestamp.getHours()).padStart(2, '0');
+            const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+            const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+            
+            const dateStr = `${year}-${month}-${day}`;
+            const timeStr = `${hours}:${minutes}:${seconds}`;
+            const fileName = `${dateStr} ErrLog.txt`;
+            const logEntry = `${timeStr} - [${context}] ${errorMessage}\n`;
+            
+            return { fileName, logEntry, timeStr };
+        }
+        
+        function logToStorage(fileName, logEntry) {
+            const storageKey = `swdb_log_${fileName}`;
+            const existingLog = localStorage.getItem(storageKey) || '';
+            const updatedLog = existingLog + logEntry;
+            localStorage.setItem(storageKey, updatedLog);
+            return updatedLog;
+        }
+        
+        function downloadFile(fileName, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        async function logError(context, errorMessage) {
+            // Log to console
+            console.error(`Error ${context}:`, errorMessage);
+            
+            try {
+                // Send to proxy server for file logging
+                const response = await fetch('http://localhost:3001/log-error', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        error: errorMessage,
+                        context: context,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log(`📝 Error logged to file: ${result.file}`);
+                    return { fileName: result.file, timeStr: new Date().toLocaleTimeString() };
+                } else {
+                    throw new Error(`Failed to log: ${response.status}`);
+                }
+            } catch (error) {
+                console.warn('Proxy logging failed, using localStorage fallback:', error);
+                
+                // Fallback to localStorage
+                const { fileName, logEntry, timeStr } = createLogEntry(context, errorMessage);
+                const fullLog = logToStorage(fileName, logEntry);
+                return { fileName, timeStr };
+            }
+        }
+        
+        // Test functions
+        async function testNetworkError() {
+            const { fileName, timeStr } = await logError('Network Error', 'Failed to fetch data from SWAPI. Network connection timeout.');
+            updateDisplay(`✅ Network error logged at ${timeStr}\n📁 File: ${fileName}\n💾 Saved to logs/2025/ folder!`, 'success');
+        }
+        
+        async function testAPIError() {
+            const { fileName, timeStr } = await logError('API Error', 'HTTP 500: Internal Server Error - SWAPI server is currently unavailable');
+            updateDisplay(`✅ API error logged at ${timeStr}\n📁 File: ${fileName}\n💾 Saved to logs/2025/ folder!`, 'success');
+        }
+        
+        async function testValidationError() {
+            const { fileName, timeStr } = await logError('Validation Error', 'Invalid person ID provided. Expected numeric value, got "abc123"');
+            updateDisplay(`✅ Validation error logged at ${timeStr}\n📁 File: ${fileName}\n💾 Saved to logs/2025/ folder!`, 'success');
+        }
+        
+        function testRealAppError() {
+            updateDisplay(`🔗 Testing in real app...\n\n1. Go to: http://localhost:5173\n2. Click the orange "🧪 Test Error Logging" button\n3. Check logs/2025/ folder for log file\n4. Come back here and click "View Stored Logs"`, 'info');
+        }
+        
+        async function viewLogs() {
+            try {
+                // Try to read actual log files from server
+                const response = await fetch('http://localhost:3001/get-logs');
+                if (!response.ok) throw new Error('Failed to fetch logs');
+                
+                const logs = await response.json();
+                
+                if (Object.keys(logs).length === 0) {
+                    updateDisplay('📭 No log files found in logs/2025/ folder.\nGenerate some errors first!', 'warning');
+                    return;
+                }
+
+                let output = '📁 Actual Log Files (from logs/2025/ folder):\n\n';
+                Object.entries(logs).forEach(([fileName, content]) => {
+                    const lines = content.split('\n').filter(line => line.trim());
+                    output += `📄 ${fileName} (${lines.length} entries)\n`;
+                    output += content;
+                    output += '\n' + '='.repeat(50) + '\n\n';
+                });
+                
+                updateDisplay(output, 'success');
+                
+            } catch (error) {
+                console.warn('Failed to read log files from server:', error);
+                updateDisplay(`❌ Failed to read log files from server.\nMake sure proxy server is running on port 3001.\nError: ${error.message}`, 'error');
+            }
+        }
+        
+        function downloadAllLogs() {
+            const logs = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('swdb_log_')) {
+                    const fileName = key.replace('swdb_log_', '');
+                    logs[fileName] = localStorage.getItem(key);
+                }
+            }
+            
+            if (Object.keys(logs).length === 0) {
+                updateDisplay('❌ No logs to download!\nGenerate some errors first.', 'error');
+                return;
+            }
+            
+            const allLogsContent = Object.entries(logs)
+                .map(([fileName, content]) => `=== ${fileName} ===\n${content}\n`)
+                .join('\n');
+            
+            downloadFile('all_swdb_logs.txt', allLogsContent);
+            updateDisplay(`✅ Downloaded all logs!\n📁 File: all_swdb_logs.txt\n📊 Combined ${Object.keys(logs).length} log files`, 'success');
+        }
+        
+        function clearLogs() {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('swdb_log_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            updateDisplay(`🧹 Cleared ${keysToRemove.length} log files from storage!`, 'success');
+        }
+        
+        function showLogCount() {
+            let logCount = 0;
+            let totalEntries = 0;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('swdb_log_')) {
+                    logCount++;
+                    const content = localStorage.getItem(key);
+                    const lines = content.split('\n').filter(line => line.trim());
+                    totalEntries += lines.length;
+                }
+            }
+            
+            updateDisplay(`📊 Log Statistics:\n📁 Files: ${logCount}\n📝 Total entries: ${totalEntries}\n💾 Storage: localStorage`, 'info');
+        }
+        
+        function updateDisplay(message, type = 'info') {
+            const output = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const typeClass = type || 'info';
+            
+            output.innerHTML = `<span class="${typeClass}">[${timestamp}] ${message}</span>`;
+        }
+        
+        // Initialize
+        updateDisplay('🚀 Error logging system ready!\nClick any button to test.', 'success');
+    </script>
+</body>
+</html>

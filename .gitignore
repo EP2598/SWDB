@@ -25,3 +25,6 @@ dist-ssr
 
 # GitHub Copilot instructions (workspace-specific)
 .github/copilot-instructions.md
+
+# Demo files (optional - not required for logging to work)
+simple-logging-test.html

@@ -1,10 +1,10 @@
 <template>
   <div class="data-display">
-    <h2>External API Data Display</h2>
+    <h2>Star Wars Database (SWAPI)</h2>
     
     <!-- Loading State -->
     <div v-if="loading" class="loading">
-      <p>Loading data...</p>
+      <p>Loading Star Wars data...</p>
       <div class="spinner"></div>
     </div>
 
@@ -17,222 +17,231 @@
     <!-- Data Display -->
     <div v-else-if="data" class="data-content">
       <div class="data-controls">
-        <button @click="fetchData" class="refresh-btn">Refresh Data</button>
-        <select v-model="selectedEndpoint" @change="fetchData" class="endpoint-select">
-          <option value="posts">Posts</option>
-          <option value="users">Users</option>
-          <option value="albums">Albums</option>
-          <option value="todos">Todos</option>
+        <button @click="refreshData" class="refresh-btn">Refresh Data</button>
+        <select v-model="selectedEndpoint" @change="handleEndpointChange" class="endpoint-select">
+          <option value="people">People</option>
+          <option value="planets">Planets</option>
+          <option value="films">Films</option>
+          <option value="species">Species</option>
+          <option value="vehicles">Vehicles</option>
+          <option value="starships">Starships</option>
         </select>
+        
+        <!-- Pagination Controls -->
+        <div class="pagination-controls" v-if="data && data.results && data.results.length > 0">
+          <button 
+            @click="goToPreviousPage" 
+            :disabled="!data.previous || loading"
+            class="page-btn"
+          >
+            ← Previous
+          </button>
+          <span class="page-info">
+            Page {{ currentPage }} of {{ totalPages }} ({{ totalCount }} total)
+          </span>
+          <button 
+            @click="goToNextPage" 
+            :disabled="!data.next || loading"
+            class="page-btn"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
       <div class="data-grid">
         <div 
           v-for="item in displayData" 
-          :key="item.id" 
+          :key="item.url" 
           class="data-card"
+          :class="getCardClass(selectedEndpoint)"
+          :data-endpoint="selectedEndpoint"
+          @click="handleCardClick(item)"
         >
-          <h3>{{ item.title || item.name || `Item ${item.id}` }}</h3>
-          <p v-if="item.body">{{ truncateText(item.body, 100) }}</p>
-          <p v-if="item.email"><strong>Email:</strong> {{ item.email }}</p>
-          <p v-if="item.username"><strong>Username:</strong> {{ item.username }}</p>
-          <p v-if="item.completed !== undefined">
-            <strong>Status:</strong> 
-            <span :class="{ completed: item.completed, pending: !item.completed }">
-              {{ item.completed ? 'Completed' : 'Pending' }}
-            </span>
-          </p>
+          <h3>{{ getItemTitle(item) }}</h3>
+          
+          <!-- People specific data -->
+          <div v-if="selectedEndpoint === 'people'" class="item-details">
+            <p><strong>Height :</strong> {{ item.height }} cm</p>
+            <p><strong>Mass :</strong> {{ item.mass }} kg</p>
+            <p><strong>Hair Color :</strong> {{ item.hairColor }}</p>
+            <p><strong>Birth Year :</strong> {{ item.birthYear }}</p>
+            <p><strong>Gender :</strong> {{ item.gender }}</p>
+            <div class="click-hint">Click to view details →</div>
+          </div>
+          
+          <!-- Planets specific data -->
+          <div v-else-if="selectedEndpoint === 'planets'" class="item-details">
+            <p><strong>Climate:</strong> {{ item.climate }}</p>
+            <p><strong>Terrain :</strong> {{ item.terrain }}</p>
+            <p><strong>Population :</strong> {{ formatNumber(item.population) }}</p>
+            <p><strong>Diameter :</strong> {{ formatNumber(item.diameter) }} km</p>
+          </div>
+          
+          <!-- Films specific data -->
+          <div v-else-if="selectedEndpoint === 'films'" class="item-details">
+            <p><strong>Episode :</strong> {{ item.episodeId }}</p>
+            <p><strong>Director :</strong> {{ item.director }}</p>
+            <p><strong>Producer :</strong> {{ item.producer }}</p>
+            <p><strong>Release Date :</strong> {{ formatDate(item.releaseDate) }}</p>
+            <p class="opening-crawl">{{ truncateText(item.openingCrawl, 150) }}</p>
+            <div class="click-hint">Click to view details →</div>
+          </div>
+          
+          <!-- Species specific data -->
+          <div v-else-if="selectedEndpoint === 'species'" class="item-details">
+            <p><strong>Classification :</strong> {{ item.classification }}</p>
+            <p><strong>Designation :</strong> {{ item.designation }}</p>
+            <p><strong>Average Height :</strong> {{ item.averageHeight }} cm</p>
+            <p><strong>Language :</strong> {{ item.language }}</p>
+          </div>
+          
+          <!-- Vehicles specific data -->
+          <div v-else-if="selectedEndpoint === 'vehicles'" class="item-details">
+            <p><strong>Model :</strong> {{ item.model }}</p>
+            <p><strong>Manufacturer :</strong> {{ item.manufacturer }}</p>
+            <p><strong>Cost :</strong> {{ formatNumber(item.costInCredits) }} credits</p>
+            <p><strong>Max Speed :</strong> {{ item.maxAtmospheringSpeed }} km/h</p>
+          </div>
+          
+          <!-- Starships specific data -->
+          <div v-else-if="selectedEndpoint === 'starships'" class="item-details">
+            <p><strong>Model :</strong> {{ item.model }}</p>
+            <p><strong>Manufacturer :</strong> {{ item.manufacturer }}</p>
+            <p><strong>Cost :</strong> {{ formatNumber(item.costInCredits) }} credits</p>
+            <p><strong>Hyperdrive Rating :</strong> {{ item.hyperdriveRating }}</p>
+            <p><strong>MGLT :</strong> {{ item.MGLT }}</p>
+          </div>
         </div>
       </div>
 
-      <div v-if="displayData.length === 0" class="no-data">
+      <div v-if="!loading && displayData.length === 0" class="no-data">
         <p>No data available</p>
       </div>
     </div>
 
     <!-- Initial State -->
     <div v-else class="initial-state">
-      <p>Click the button below to fetch data from external API</p>
-      <button @click="fetchData" class="fetch-btn">Fetch Data</button>
+      <p>Welcome to the Star Wars Database!</p>
+      <p>Click the button below to explore the galaxy far, far away...</p>
+      <button @click="fetchData" class="fetch-btn">Explore the Galaxy</button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useApi } from '../composables/useApi.js';
-import { jsonPlaceholderAPI } from '../services/apiService.js';
+import { useRouter } from 'vue-router';
+import { useSwapiEndpoint } from '../utils/composables.js';
+import { logError } from '../utils/logger.js';
+import { 
+  formatNumber, 
+  formatDate, 
+  truncateText, 
+  getItemTitle, 
+  getCardClass,
+  extractIdFromUrl
+} from '../utils/apiUtils.js';
+import './DataDisplay.vue.css';
+
+const router = useRouter();
 
 // Reactive data
-const selectedEndpoint = ref('posts');
+const selectedEndpoint = ref('people');
 
-// API composable
-const { data, loading, error, execute } = useApi(async (endpoint) => {
-  return await jsonPlaceholderAPI.get(`/${endpoint}`);
-});
+// SWAPI endpoint composable with pagination support
+const { state, fetchData: fetchEndpointData, nextPage, previousPage, goToPage } = useSwapiEndpoint('people');
 
 // Computed properties
 const displayData = computed(() => {
-  if (!data.value) return [];
-  // Limit to first 12 items for better display
-  return data.value.slice(0, 12);
+  console.log('Computing displayData, state.data:', state.data);
+  if (!state.data || !state.data.results) {
+    console.log('No data or results found');
+    return [];
+  }
+  console.log('Returning results:', state.data.results.length, 'items');
+  return state.data.results;
 });
 
+// Expose state properties for template
+const data = computed(() => state.data);
+const loading = computed(() => state.loading);
+const error = computed(() => state.error);
+const currentPage = computed(() => state.currentPage);
+const totalPages = computed(() => state.totalPages);
+const totalCount = computed(() => state.totalCount);
+
 // Methods
-const fetchData = async () => {
+const fetchData = async (page = 1) => {
   try {
-    await execute(selectedEndpoint.value);
+    console.log(`Fetching data for ${selectedEndpoint.value}, page ${page}`);
+    await fetchEndpointData(selectedEndpoint.value, page);
+    console.log('Data fetched successfully:', state.data);
   } catch (err) {
-    console.error('Failed to fetch data:', err);
+    await logError('Failed to fetch data', err);
   }
 };
 
-const truncateText = (text, maxLength) => {
-  if (!text) return '';
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+const refreshData = async () => {
+  console.log('Refreshing data...');
+  await fetchData(state.currentPage);
+};
+
+const goToNextPage = () => {
+  if (state.data?.next) {
+    nextPage(selectedEndpoint.value);
+  }
+};
+
+const goToPreviousPage = () => {
+  if (state.data?.previous) {
+    previousPage(selectedEndpoint.value);
+  }
+};
+
+const goToSpecificPage = (page) => {
+  goToPage(page, selectedEndpoint.value);
+};
+
+const handleEndpointChange = () => {
+  console.log('Endpoint changed to:', selectedEndpoint.value);
+  fetchData(1);
+};
+
+// Handle card click for navigation
+const handleCardClick = async (item) => {
+  console.log('Card clicked:', item)
+  
+  if (selectedEndpoint.value === 'people') {
+    // Extract person ID from URL using utility function
+    console.log('Item URL:', item.url)
+    const personId = extractIdFromUrl(item.url);
+    console.log('Extracted person ID:', personId)
+    if (personId) {
+      console.log('Navigating to:', `/people/${personId}`)
+      router.push(`/people/${personId}`);
+    } else {
+      await logError('Could not extract person ID from URL', item.url)
+    }
+  } else if (selectedEndpoint.value === 'films') {
+    // Extract film ID from URL using utility function
+    console.log('Film URL:', item.url)
+    const filmId = extractIdFromUrl(item.url);
+    console.log('Extracted film ID:', filmId)
+    if (filmId) {
+      console.log('Navigating to:', `/films/${filmId}`)
+      router.push(`/films/${filmId}`);
+    } else {
+      await logError('Could not extract film ID from URL', item.url)
+    }
+  }
+  // Add navigation for other endpoints in the future if needed
 };
 
 // Fetch initial data when component mounts
 onMounted(() => {
-  fetchData();
+  fetchData(1);
 });
 </script>
 
-<style scoped>
-.data-display {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
 
-h2 {
-  color: #2c3e50;
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.loading, .error, .initial-state {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #42b883;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 20px auto;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.error {
-  color: #e74c3c;
-}
-
-.data-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
-}
-
-.data-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-.data-card {
-  background: white;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.data-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.data-card h3 {
-  color: #2c3e50;
-  margin: 0 0 10px 0;
-  font-size: 1.1em;
-}
-
-.data-card p {
-  margin: 8px 0;
-  color: #666;
-  line-height: 1.4;
-}
-
-.completed {
-  color: #27ae60;
-  font-weight: bold;
-}
-
-.pending {
-  color: #f39c12;
-  font-weight: bold;
-}
-
-.no-data {
-  text-align: center;
-  color: #666;
-  font-style: italic;
-  padding: 40px;
-}
-
-/* Button Styles */
-button {
-  background: #42b883;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.3s ease;
-}
-
-button:hover {
-  background: #369870;
-}
-
-.retry-btn {
-  background: #e74c3c;
-}
-
-.retry-btn:hover {
-  background: #c0392b;
-}
-
-.endpoint-select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 14px;
-  background: white;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .data-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .data-controls {
-    flex-direction: column;
-  }
-}
-</style>
